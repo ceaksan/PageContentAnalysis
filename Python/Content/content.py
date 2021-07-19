@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu May 30 13:04:33 2019
+"""
 # !pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib oauth2client
 
 # GA
@@ -18,21 +23,17 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 class ContentReport:
     def __init__(self, dir=os.getcwd(), keyFile=None):
-        self.keyFile = keyFile
 
-        self.credentials = None
-        self.domain = None
+        self.dir, self.getKeyFile = dir, '{}/{}'.format(dir, keyFile)
+        self.credentials, self.domain, self.fileName = None, None, None
         self.scopes = []
-        self.dateRanges = {}
-        self.GA_BODY = {}
-        self.GSC_BODY = {}
-        self.dir = dir
+        self.dateRanges, self.GA_BODY, self.GSC_BODY = {}, {}, {}
 
     def setCredentials(self):
-        keyFile = self.dir+'/'+self.keyFile
-        if os.path.exists(keyFile):
-            self.credentials = (ServiceAccountCredentials
-                                .from_json_keyfile_name(keyFile, self.scopes))
+        if os.path.exists(self.getKeyFile):
+            self.credentials = (
+                ServiceAccountCredentials
+                .from_json_keyfile_name(self.getKeyFile, self.scopes))
         else:
             print('Credential file not found')
 
@@ -55,14 +56,16 @@ class ContentReport:
 
     def setGA(self, viewId, metrics='pageviews', dimensions='pagePath', orderBy='pageviews', segment='gaid::-3'):
 
+        prefix = 'ga'
+
         self.GA_BODY = {
             'reportRequests': [{
                 'viewId': viewId,
                 'dateRanges': self.dateRanges,
-                'metrics': [{'expression': 'ga:{}'.format(i), 'alias': i} for i in metrics],
-                'dimensions': [{'name': 'ga:{}'.format(i)} for i in dimensions],
+                'metrics': [{'expression': '{}:{}'.format(prefix, i), 'alias': i} for i in metrics],
+                'dimensions': [{'name': '{}:{}'.format(prefix, i)} for i in dimensions],
                 'orderBys': [{
-                    "fieldName": 'ga:{}'.format(orderBy),
+                    "fieldName": '{}:{}'.format(prefix, orderBy),
                     "orderType": 'VALUE',
                     "sortOrder": 'DESCENDING'
                 }],
@@ -102,12 +105,16 @@ class ContentReport:
                     list.append(dict)
                 return pd.DataFrame(list)
 
-        GA_response = (
-            build('analyticsreporting', 'v4',
-                  credentials=self.getCredentials())
-            .reports()
-            .batchGet(body=self.GA_BODY)
-            .execute())
+        try:
+            print('Working on the GA API request...')
+            GA_response = (
+                build('analyticsreporting', 'v4',
+                      credentials=self.getCredentials())
+                .reports()
+                .batchGet(body=self.GA_BODY)
+                .execute())
+        except Exception as e:
+            print('Error: {}'.format(e))
 
         df = (
             print_response(GA_response)
@@ -132,30 +139,38 @@ class ContentReport:
 
     def getGSC(self, export=False):
         # redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
+        try:
+            print('Working on the GSC API request...')
+            GSC_response = (
+                build('webmasters', 'v3', credentials=self.getCredentials())
+                .searchanalytics()
+                .query(siteUrl=self.domain, body=self.GSC_BODY)
+                .execute())
+            df = pd.json_normalize(GSC_response['rows'])
 
-        GSC_response = (
-            build('webmasters', 'v3', credentials=self.getCredentials())
-            .searchanalytics()
-            .query(siteUrl=self.domain, body=self.GSC_BODY)
-            .execute())
-        df = pd.json_normalize(GSC_response['rows'])
+            for i, d in enumerate(self.GSC_BODY['dimensions']):
+                df[d] = df['keys'].apply(lambda x: x[i])
 
-        for i, d in enumerate(self.GSC_BODY['dimensions']):
-            df[d] = df['keys'].apply(lambda x: x[i])
-
-        df.drop(columns='keys', inplace=True)
-        if export is True:
-            self.saveAsCSV(fileName='GSC', data=df)
-        else:
-            print(df)
+            df.drop(columns='keys', inplace=True)
+            if export is True:
+                self.saveAsCSV(fileName='GSC', data=df)
+            else:
+                print(df)
+        except Exception as e:
+            print('Error: {}'.format(e))
 
     def saveAsCSV(self, fileName, data):
-        file = ('{}/{}-{}.csv'.format(self.dir,
-                fileName, self.dateRanges['startDate']))
-        if os.path.exists(file):
-            os.remove(file)
-        else:
-            data.to_csv(file, index=False)
+        self.fileName = (
+            '{}/{}-{}.csv'
+            .format(self.dir, fileName, self.dateRanges['startDate']))
+        try:
+            if os.path.exists(self.fileName):
+                os.remove(self.fileName)
+            data.to_csv(self.fileName, index=False)
+            if os.path.exists(self.fileName):
+                print('{} has been successfully created!'.format(self.fileName))
+        except Exception as e:
+            print('Error: {}'.format(e))
 
 
 def main():
