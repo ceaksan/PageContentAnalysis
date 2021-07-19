@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu May 30 13:04:33 2019
+Created on Mon July 19 13:04:33 2021
 """
 # !pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib oauth2client
 
@@ -65,16 +65,16 @@ class ContentReport:
                 'metrics': [{'expression': '{}:{}'.format(prefix, i), 'alias': i} for i in metrics],
                 'dimensions': [{'name': '{}:{}'.format(prefix, i)} for i in dimensions],
                 'orderBys': [{
-                    "fieldName": '{}:{}'.format(prefix, orderBy),
-                    "orderType": 'VALUE',
-                    "sortOrder": 'DESCENDING'
+                    'fieldName': '{}:{}'.format(prefix, orderBy),
+                    'orderType': 'VALUE',
+                    'sortOrder': 'DESCENDING'
                 }],
-                # "segments": [{
-                #    "segmentId": segment
+                # 'segments': [{
+                #    'segmentId': segment
                 # }],
-                "samplingLevel": "LARGE",
-                # "pageToken": "10000",
-                "pageSize": 10000,
+                'samplingLevel': 'LARGE',
+                # 'pageToken': 10000,
+                'pageSize': 10000,
             }],
         }
 
@@ -136,6 +136,7 @@ class ContentReport:
             'dimensions': dimensions,
             'rowLimit': 10000
         }
+        print(self.GSC_BODY)
 
     def getGSC(self, export=False):
         # redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
