@@ -17,7 +17,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 
 class ContentReport:
-    def __init__(self, keyFile):
+    def __init__(self, dir=os.getcwd(), keyFile=None):
         self.keyFile = keyFile
 
         self.credentials = None
@@ -26,13 +26,15 @@ class ContentReport:
         self.dateRanges = {}
         self.GA_BODY = {}
         self.GSC_BODY = {}
+        self.dir = dir
 
     def setCredentials(self):
-        if os.path.exists(self.keyFile):
+        keyFile = self.dir+'/'+self.keyFile
+        if os.path.exists(keyFile):
             self.credentials = (ServiceAccountCredentials
-                                .from_json_keyfile_name(self.keyFile, self.scopes))
+                                .from_json_keyfile_name(keyFile, self.scopes))
         else:
-            print('Credentials file not found')
+            print('Credential file not found')
 
     def getCredentials(self):
         self.setCredentials()
@@ -148,28 +150,42 @@ class ContentReport:
             print(df)
 
     def saveAsCSV(self, fileName, data):
-        data.to_csv('{}-{}.csv'.format(
-            fileName, self.dateRanges['startDate']), index=False)
+        file = ('{}/{}-{}.csv'.format(self.dir,
+                fileName, self.dateRanges['startDate']))
+        if os.path.exists(file):
+            os.remove(file)
+        else:
+            data.to_csv(file, index=False)
 
 
-data = ContentReport(
-    keyFile='PyContentAnalysis/r-test-308919-e4b2af358d7e.json')
+def main():
 
-data.setScopes(['https://www.googleapis.com/auth/analytics.readonly',
-               'https://www.googleapis.com/auth/webmasters.readonly'])
+    try:
+        data = ContentReport(dir='/Users/ceaksan/Desktop/PageContentAnalysis/Python/Content',
+                             keyFile='credentials.json')
 
-data.setDateRange('2020-05-30', '2021-05-30')
-data.setGA(
-    viewId='109466096',
-    metrics=['bounceRate', 'pageviews', 'avgTimeOnPage',
-             'avgSessionDuration', 'avgPageLoadTime'],
-    dimensions=['pagePath', 'pageTitle'],
-    orderBy='pageviews',
-    segment='gaid::-3')
+        data.setScopes(['https://www.googleapis.com/auth/analytics.readonly',
+                        'https://www.googleapis.com/auth/webmasters.readonly'])
 
-data.setGSC(
-    domain='https://ceaksan.com',
-    dimensions=['query', 'page'])
+        data.setDateRange('2020-05-30', '2021-05-30')
+        data.setGA(
+            viewId='109466096',
+            metrics=['bounceRate', 'pageviews', 'avgTimeOnPage',
+                     'avgSessionDuration', 'avgPageLoadTime'],
+            dimensions=['pagePath', 'pageTitle'],
+            orderBy='pageviews',
+            segment='gaid::-3')
 
-data.getGA(export=True)
-data.getGSC(export=True)
+        data.setGSC(
+            domain='https://ceaksan.com',
+            dimensions=['query', 'page'])
+
+        data.getGA(export=True)
+        data.getGSC(export=True)
+
+    except Exception as e:
+        print('Error: {}'.format(e))
+
+
+if __name__ == '__main__':
+    main()
